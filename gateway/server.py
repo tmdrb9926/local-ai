@@ -151,7 +151,7 @@ async def proxy_handler(request):
             status=403,
         )
 
-    if path not in ALLOWED_ENDPOINTS and not path.startswith("/v1/") and path != "/health":
+    if path not in ALLOWED_ENDPOINTS and not path.startswith("/v1/") and path not in ("/health", "/"):
         return web.json_response(
             {"error": f"Endpoint not allowed: {path}"},
             status=403,
