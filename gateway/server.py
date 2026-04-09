@@ -158,17 +158,29 @@ async def proxy_handler(request):
         )
 
     # 인증
+    client_ip = request.remote or ""
+    is_local = client_ip.startswith("127.") or client_ip.startswith("192.168.") \
+        or client_ip.startswith("10.") or client_ip.startswith("172.") \
+        or client_ip == "::1"
+
     auth = request.headers.get("Authorization", "")
-    if not auth.startswith("Bearer "):
+    key_info = None
+
+    if auth.startswith("Bearer "):
+        # API Key가 있으면 검증
+        token = auth[7:]
+        key_info = key_store.validate(token)
+        if not key_info:
+            return web.json_response({"error": "Invalid API key"}, status=403)
+    elif is_local:
+        # 내부 네트워크는 인증 없이 허용
+        key_info = {"id": f"local_{client_ip}", "rate_limit": 60}
+    else:
+        # 외부 IP는 API Key 필수
         return web.json_response(
             {"error": "Missing Authorization header. Use: Bearer <api-key>"},
             status=401,
         )
-
-    token = auth[7:]
-    key_info = key_store.validate(token)
-    if not key_info:
-        return web.json_response({"error": "Invalid API key"}, status=403)
 
     # Rate limit
     if not rate_limiter.check(key_info["id"], key_info["rate_limit"]):
