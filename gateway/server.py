@@ -166,19 +166,19 @@ async def proxy_handler(request):
     auth = request.headers.get("Authorization", "")
     key_info = None
 
-    if auth.startswith("Bearer "):
-        # API Key가 있으면 검증
+    if is_local:
+        # 내부 네트워크는 무조건 허용 (Claude Code가 보내는 sk-ant- 헤더 무시)
+        key_info = {"id": f"local_{client_ip}", "rate_limit": 60}
+    elif auth.startswith("Bearer gw-sk-"):
+        # 외부 IP: 게이트웨이 API Key 검증
         token = auth[7:]
         key_info = key_store.validate(token)
         if not key_info:
             return web.json_response({"error": "Invalid API key"}, status=403)
-    elif is_local:
-        # 내부 네트워크는 인증 없이 허용
-        key_info = {"id": f"local_{client_ip}", "rate_limit": 60}
     else:
-        # 외부 IP는 API Key 필수
+        # 외부 IP + 유효한 키 없음
         return web.json_response(
-            {"error": "Missing Authorization header. Use: Bearer <api-key>"},
+            {"error": "Missing Authorization header. Use: Bearer gw-sk-<key>"},
             status=401,
         )
 
